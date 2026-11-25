@@ -1,0 +1,141 @@
+*punto.txt*  Layout switcher for Neovim              *punto* *punto.nvim*
+
+==============================================================================
+CONTENTS                                                    *punto-contents*
+
+  1. Introduction ..................................... |punto-introduction|
+  2. Setup ............................................ |punto-setup|
+  3. Commands ......................................... |punto-commands|
+  4. Configuration .................................... |punto-config|
+  5. Layouts .......................................... |punto-layouts|
+  6. API .............................................. |punto-api|
+  7. Health ........................................... |punto-health|
+
+==============================================================================
+1. INTRODUCTION                                         *punto-introduction*
+
+punto.nvim fixes text typed with the wrong keyboard layout by converting
+characters by physical key positions: "ghbdtn" -> "привет",
+"руддщ" -> "hello", "priwet" -> "привет" for the default layout.
+
+The conversion is always between `en(qwerty)` and the configured layout
+(|punto-config|, `layout`). The default is `ru(phonetic_winkeys)`.
+
+==============================================================================
+2. SETUP                                                       *punto-setup*
+
+>lua
+require("punto").setup({
+  layout = "ru(phonetic_winkeys)",
+})
+<
+
+This creates the `<Leader>sw` mappings for Normal and Visual modes and the
+|:PuntoSwitch| command. Set `keymap = false` to disable mappings.
+
+With lazy.nvim do not use both a lazy `keys` spec and `keymap` in `opts`.
+
+==============================================================================
+3. COMMANDS                                                *punto-commands*
+
+                                                          *:PuntoSwitch*
+:PuntoSwitch [direction]
+    Convert the last word (Normal mode) or the visual range. `direction` is
+    one of `auto`, `to_ru`, `to_en`. Without an argument the configured
+    `direction` is used.
+
+    The command accepts a range, so `:'<,'>PuntoSwitch` converts the last
+    visual selection and `:1,5PuntoSwitch` converts whole lines.
+
+==============================================================================
+4. CONFIGURATION                                             *punto-config*
+
+All options and their defaults:
+
+>lua
+require("punto").setup({
+  layout = "ru(phonetic_winkeys)",
+  latin_layout = "en(qwerty)",
+  direction = "auto",     -- "auto" | "to_ru" | "to_en"
+  keymap = "<Leader>sw",  -- string | false | { normal = ..., visual = ... }
+  normal_scope = "word",  -- "word" | "token"
+  notify = true,
+  ignore_buftypes = { "terminal", "prompt" },
+  ignore_filetypes = {},
+})
+<
+
+`layout` is the layout the user actually types in. Latin text is converted to
+it; text in its alphabet is converted to `latin_layout`.
+
+`direction = "auto"` converts only text written in one script. Mixed text
+("привет world") is not converted; use `to_ru` or `to_en` explicitly.
+
+`normal_scope = "word"` converts only letters, so trailing punctuation stays
+as is. `normal_scope = "token"` uses whitespace as the boundary and therefore
+includes adjacent punctuation.
+
+==============================================================================
+5. LAYOUTS                                                  *punto-layouts*
+
+Built-in layouts:
+
+  `en(qwerty)`
+  `ru(winkeys)`
+  `ru(phonetic)`
+  `ru(phonetic_winkeys)`   (default)
+
+Aliases: `en` and `us` for `en(qwerty)`, `ru` for `ru(winkeys)`.
+
+Note: `ru(phonetic_winkeys)` follows xkb and uses W for "в" and V for "ж",
+so "priwet" converts to "привет" and "privet" to "прижет". This is not a
+bug; use a custom layout for other phonetic variants.
+
+Punctuation is mapped by physical keys: in `ru(winkeys)` the character "?"
+typed on the English layout (Shift+/) becomes "," in Russian, while the
+Russian "?" (Shift+7) becomes "&" when converted back.
+
+Custom layouts can be registered before setup:
+
+>lua
+require("punto").register_layout({
+  id = "ru(custom)",
+  name = "My layout",
+  alphabet = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
+          .. "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ",
+  rows = {
+    { "ю1234567890-ь", "Ю!@ёЁъЪ&*()_Ь" }, -- ` 1..0 - =
+    { "явертыуиопшщэ", "ЯВЕРТЫУИОПШЩЭ" }, -- q..] backslash
+    { "асдфгчйкл;'", 'АСДФГЧЙКЛ:"' },     -- a..'
+    { "зхцжбнм,./", "ЗХЦЖБНМ<>?" },       -- z../ 
+  },
+})
+<
+
+Rows must be 13, 13, 11 and 10 characters long; every character within a
+layout must be unique.
+
+==============================================================================
+6. API                                                          *punto-api*
+
+>lua
+local punto = require("punto")
+
+punto.setup(opts)                       -- configure
+punto.switch({ direction = "to_ru" })   -- convert, returns changed
+punto.convert("ghbdtn", { direction = "to_ru" })
+punto.register_layout(spec)
+punto.layouts.get("ru(winkeys)")
+punto.layouts.list()
+<
+
+`switch()` works without `setup()` using the default options, but the
+|:PuntoSwitch| command is registered by setup().
+
+==============================================================================
+7. HEALTH                                                     *punto-health*
+
+Run `:checkhealth punto` to verify the Neovim version, `getregionpos()`,
+layout resolution, keymaps and the command.
+
+vim:tw=78:ts=8:noet:ft=help:norl:
